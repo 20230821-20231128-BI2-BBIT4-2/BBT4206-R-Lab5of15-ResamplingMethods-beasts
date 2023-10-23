@@ -36,3 +36,87 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Dataset loader
+
+```{r}
+if (require("mlbench")) {
+  require("mlbench")
+} else {
+  install.packages("mlbench", dependencies = TRUE,
+                   repos = "https://cloud.r-project.org")
+}
+
+data(PimaIndiansDiabetes)
+```
+
+# Split the dataset
+
+```{r}
+str(PimaIndiansDiabetes)
+```
+
+**Description:** 40% of the original data will be used to train the model and 60% of the original data will be used to test the model.
+
+```{r}
+library(caret)
+
+train_index <- createDataPartition(PimaIndiansDiabetes$diabetes,
+                                   p = 0.40,
+                                   list = FALSE)
+PimaIndiansDiabetes_train <- PimaIndiansDiabetes[train_index, ]
+PimaIndiansDiabetes_test <- PimaIndiansDiabetes[-train_index, ]
+```
+
+## Train a Naive Bayes classifier using the training dataset
+
+### naiveBayes() function in the e1071 package
+
+```{r}
+PimaIndiansDiabetes_model_nb_e1071 <-
+  e1071::naiveBayes(diabetes ~ .,
+                    data = PimaIndiansDiabetes_train)
+```
+
+### naiveBayes() function in the caret package
+
+```{r}
+PimaIndiansDiabetes_model_nb_caret <- # nolint
+  caret::train(diabetes ~ ., data =
+               PimaIndiansDiabetes_train[, c("pregnant", "glucose", "pressure",
+                    "triceps", "insulin","mass", "pedigree","age","diabetes")],
+               method = "naive_bayes")
+```
+
+## Test the trained model using the testing dataset
+
+### Test the trained e1071 Naive Bayes model using the testing dataset
+
+```{r}
+predictions_nb_e1071 <-
+  predict(PimaIndiansDiabetes_model_nb_e1071,
+          PimaIndiansDiabetes_test[, c("pregnant", "glucose", "pressure",
+                        "triceps", "insulin","mass","pedigree","age","diabetes")])
+```
+
+### Test the trained caret Naive Bayes model using the testing dataset
+
+```{r}
+predictions_nb_caret <-
+  predict(PimaIndiansDiabetes_model_nb_caret,
+          PimaIndiansDiabetes_test[, c("pregnant", "glucose", "pressure",
+                        "triceps", "insulin","mass","pedigree","age","diabetes")])
+```
+
+## View the Results
+
+### e1071 Naive Bayes model and test results using a confusion matrix
+
+```{r}
+print(predictions_nb_e1071)
+caret::confusionMatrix(predictions_nb_e1071,
+                       PimaIndiansDiabetes_test[, c("pregnant", "glucose",                               "pressure","triceps", "insulin","mass","pedigree","age",
+                                                    "diabetes")]$diabetes)
+plot(table(predictions_nb_e1071,
+           PimaIndiansDiabetes_test[, c("pregnant", "glucose", "pressure",
+           "triceps", "insulin","mass","pedigree","age","diabetes")]$diabetes))
+```
