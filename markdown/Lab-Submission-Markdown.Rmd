@@ -15,12 +15,12 @@ editor_options:
 
 # Student Details
 
-|                                              |     |
-|----------------------------------------------|-----|
-| **Student ID Number**                        | ... |
-| **Student Name**                             | ... |
-| **BBIT 4.2 Group**                           | ... |
-| **BI Project Group Name/ID (if applicable)** | ... |
+|                                              |                             |
+|----------------------------------------------|-----------------------------|
+| **Student ID Number**                        | 119630,135844,131038,104135 |
+| **Student Name**                             | beasts                      |
+| **BBIT 4.2 Group**                           | A&B&C                       |
+| **BI Project Group Name/ID (if applicable)** | beasts                      |
 
 # Setup Chunk
 
@@ -49,7 +49,9 @@ if (require("mlbench")) {
 data(PimaIndiansDiabetes)
 ```
 
-# Split the dataset
+# Splitting the dataset: Pima Indians Diabetes
+
+## Splitting the dataset
 
 ```{r}
 str(PimaIndiansDiabetes)
@@ -119,4 +121,213 @@ caret::confusionMatrix(predictions_nb_e1071,
 plot(table(predictions_nb_e1071,
            PimaIndiansDiabetes_test[, c("pregnant", "glucose", "pressure",
            "triceps", "insulin","mass","pedigree","age","diabetes")]$diabetes))
+```
+
+### caret Naive Bayes model and test results using a confusion matrix
+
+```{r}
+print(PimaIndiansDiabetes_model_nb_caret)
+caret::confusionMatrix(predictions_nb_caret,
+                       PimaIndiansDiabetes_test[, c("pregnant", "glucose",                               "pressure","triceps", "insulin","mass","pedigree","age",
+                                                    "diabetes")]$diabetes)
+plot(table(predictions_nb_caret,
+           PimaIndiansDiabetes_test[, c("pregnant", "glucose", "pressure",
+           "triceps", "insulin","mass","pedigree","age","diabetes")]$diabetes))  
+```
+
+# Bootstrapping: Pima Indians Diabetes
+
+### Split the dataset
+
+```{r}
+library(caret)
+
+train_index <- createDataPartition(PimaIndiansDiabetes$diabetes,
+                                   p = 0.40,
+                                   list = FALSE)
+PimaIndiansDiabetes_train <- PimaIndiansDiabetes[train_index, ]
+PimaIndiansDiabetes_test <- PimaIndiansDiabetes[-train_index, ]
+```
+
+### Train a linear regression model (for regression)
+
+```{r}
+train_control <- trainControl(method = "boot", number = 500)
+
+PimaIndiansDiabetes_model_lm <- # nolint
+  caret::train(`glucose` ~
+                 `pedigree` + `mass` +
+                   `insulin` + `triceps` +
+                   `pressure`,
+               data = PimaIndiansDiabetes_train,
+               trControl = train_control,
+               na.action = na.omit, method = "lm", metric = "RMSE")
+```
+
+### Test the trained linear regression model using the testing dataset
+
+```{r}
+predictions_lm <- predict(PimaIndiansDiabetes_model_lm,
+                          PimaIndiansDiabetes_test[, 1:9])
+```
+
+### View the RMSE and the predicted values for the 12 observations
+
+```{r}
+print(PimaIndiansDiabetes_model_lm)
+print(predictions_lm)
+```
+
+### Use the model to make a prediction on unseen new data
+
+```{r}
+new_data <-
+  data.frame(`pregnant` = c(9), # nolint
+             `glucose` = c(200),
+             `pressure` = c(30),
+             `triceps` = c(55), 
+             `insulin` = c(11),
+             `mass` = c(80.5),
+             `pedigree` = c(0.526), 
+             `age` = c(40),
+             `diabetes` = c('neg'), check.names = FALSE)
+
+predictions_lm_new_data <-
+  predict(PimaIndiansDiabetes_model_lm, new_data)
+
+print(predictions_lm_new_data)
+
+```
+
+# CV, Repeated CV, and LOOCV: Pima Indians Diabetes Database
+
+## Regression: Linear Model
+
+### 10-fold cross validation
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10)
+
+PimaIndiansDiabetes_model_lm <-
+  caret::train(`mass` ~ .,
+               data = PimaIndiansDiabetes_train,
+               trControl = train_control, na.action = na.omit,
+               method = "lm", metric = "RMSE")
+```
+
+### Test the trained linear model using the testing dataset
+
+```{r}
+predictions_lm <- predict(PimaIndiansDiabetes_model_lm, PimaIndiansDiabetes_test[, -10])
+```
+
+### View the RMSE and the predicted values
+
+```{r}
+print(PimaIndiansDiabetes_model_lm)
+print(predictions_lm)
+```
+
+## Classification: LDA with k-fold Cross Validation
+
+### LDA classifier based on a 5-fold cross validation
+
+```{r}
+library(caret)
+train_control <- trainControl(method = "cv", number = 5)
+
+PimaIndiansDiabetes_model_lda <-
+  caret::train(`diabetes` ~ ., data = PimaIndiansDiabetes_train,
+               trControl = train_control, na.action = na.omit, method = "lda",
+               metric = "Accuracy")
+```
+
+### Test the trained LDA model using the testing dataset
+
+```{r}
+predictions_lda <- predict(PimaIndiansDiabetes_model_lda,
+                           PimaIndiansDiabetes_test[, 1:9])
+```
+
+### View the summary of the model and view the confusion matrix
+
+```{r}
+print(PimaIndiansDiabetes_model_lda)
+caret::confusionMatrix(predictions_lda, PimaIndiansDiabetes_test$diabetes)
+```
+
+## Classification: Naive Bayes with Repeated k-fold Cross Validation
+
+### Train an e1071::naive Bayes classifier based on the diabetes variable
+
+```{r}
+PimaIndiansDiabetes_model_nb <-
+  e1071::naiveBayes(`diabetes` ~ ., data = PimaIndiansDiabetes_train)
+```
+
+### Test the trained naive Bayes classifier using the testing dataset
+
+```{r}
+predictions_nb_e1071 <-
+  predict(PimaIndiansDiabetes_model_nb, PimaIndiansDiabetes_test[, 1:9])
+```
+
+### View a summary of the naive Bayes model and the confusion matrix
+
+```{r}
+print(PimaIndiansDiabetes_model_nb)
+caret::confusionMatrix(predictions_nb_e1071, PimaIndiansDiabetes_test$diabetes)
+```
+
+## Classification: SVM with Repeated k-fold Cross Validation
+
+### SVM Classifier using 5-fold cross validation with 3 reps
+
+```{r}
+train_control <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+
+PimaIndiansDiabetes_model_svm <-
+  caret::train(`diabetes` ~ ., data = PimaIndiansDiabetes_train,
+               trControl = train_control, na.action = na.omit,
+               method = "svmLinearWeights2", metric = "Accuracy")
+```
+
+### Test the trained SVM model using the testing dataset
+
+```{r}
+predictions_svm <- predict(PimaIndiansDiabetes_model_svm, PimaIndiansDiabetes_test[, 1:9])
+```
+
+### View a summary of the model and view the confusion matrix
+
+```{r}
+print(PimaIndiansDiabetes_model_svm)
+caret::confusionMatrix(predictions_svm, PimaIndiansDiabetes_test$diabetes)
+```
+
+## Classification: Naive Bayes with Leave One Out Cross Validation
+
+### Train a Naive Bayes classifier based on an LOOCV
+
+```{r}
+train_control <- trainControl(method = "LOOCV")
+
+PimaIndiansDiabetes_model_nb_loocv <-
+  caret::train(`diabetes` ~ ., data = PimaIndiansDiabetes_train,
+               trControl = train_control, na.action = na.omit,
+               method = "naive_bayes", metric = "Accuracy")
+```
+
+### Test the trained model using the testing dataset
+
+```{r}
+predictions_nb_loocv <-
+  predict(PimaIndiansDiabetes_model_nb_loocv, PimaIndiansDiabetes_test[, 1:9])
+```
+
+### View the confusion matrix
+
+```{r}
+print(PimaIndiansDiabetes_model_nb_loocv)
+caret::confusionMatrix(predictions_nb_loocv, PimaIndiansDiabetes_test$diabetes)
 ```
