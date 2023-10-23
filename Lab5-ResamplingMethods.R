@@ -346,6 +346,7 @@ plot(table(predictions_nb_caret,
                                       "stock")]$stock))
 
 # DATASET 2 (Splitting the dataset): Default of credit card clients ----
+library(readr)
 defaulter_dataset <-
   readr::read_csv(
     "data/default of credit card clients.csv",
